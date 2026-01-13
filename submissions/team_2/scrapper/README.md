@@ -8,10 +8,11 @@ A robust, concurrent wiki scraper for MetaKGP (https://wiki.metakgp.org) with ba
 - **Wikitext cleaning** - automatic conversion to clean Markdown format
 - **Infobox extraction** - converts infoboxes to readable summaries
 - **Link cleaning** - converts wiki links to plain text
+- **Database upload** - PostgreSQL integration with --database flag
 - **Batch file storage** - save pages in separate files for better organization
 - **Flexible control** - scrape specific ranges, limits, or the entire wiki
 - **Multiple formats** - JSON (structured), text (raw), and Markdown (cleaned)
-- **Complete page list** - all 3,583 pages already fetched
+- **Complete page list** - all pages already fetched
 - **Easy to use** - simple Python commands
 - **Clean structure** - organized src/ and results/ folders
 
@@ -22,9 +23,9 @@ testing/
 ├── src/                        # Source code
 │   ├── main.py                # Main parallel scraper
 │   ├── fetch_all_links.py     # Fetch all page links
-│   └── wikitext_cleaner.py    # Clean wikitext to Markdown NEW
+│   └── wikitext_cleaner.py    # Clean wikitext to Markdown
 ├── results/                    # All data outputs
-│   ├── all_pages.json         # List of all 3,583 pages
+│   ├── all_pages.json         # List of all pages
 │   ├── all_pages.txt          # Text version
 │   └── scraped_data/          # Scraped page content
 │       ├── scraped_pages.json # JSON with both raw & cleaned text
@@ -42,7 +43,13 @@ testing/
 source venv/bin/activate
 ```
 
-### 2. Scrape Pages
+### 2. Get All Pages
+```bash
+# Fetch All Pages
+python src/fetch_all_links.py
+```
+
+### 3. Scrape Pages
 
 ```bash
 # Quick sample (10 pages - creates JSON with both raw and cleaned text)
@@ -54,11 +61,14 @@ python src/main.py results/all_pages.json --limit 100 --pages 25 --threads 8
 # Full wiki (all 3,583 pages in batches of 50)
 python src/main.py results/all_pages.json --pages 50 --threads 4
 
+# With database upload (requires .env file in team_2 folder)
+python src/main.py results/all_pages.json --limit 10 --database
+
 # Optional: Also export raw wikitext to separate text file
 python src/main.py results/all_pages.json --limit 10 --text
 ```
 
-### 3. Check Results
+### 4. Check Results
 
 ```bash
 # View JSON structure with both raw and cleaned text
@@ -66,8 +76,6 @@ cat results/scraped_data/scraped_pages.json | jq '.pages[0]'
 
 # View just the cleaned text from JSON
 python -c "import json; print(json.load(open('results/scraped_data/scraped_pages.json'))['pages'][0]['cleaned_text'])"
-```
-cat results/scraped_data/scraped_pages.json | jq '.pages[0]'
 ```
 
 ## Wikitext Cleaning Features
@@ -167,18 +175,6 @@ python src/main.py results/all_pages.json --start 50 --limit 50
 python src/main.py results/all_pages.json --pages 100 --threads 8 --text
 ```
 
-### Interactive Menu
-
-```bash
-python src/index.py
-```
-
-This provides an interactive interface with options to:
-1. Fetch all page links
-2. Scrape pages concurrently
-3. Quick scrape samples
-4. Exit
-
 ## Command-Line Options
 
 ### main.py
@@ -193,9 +189,10 @@ Optional:
   --threads N             Number of concurrent threads (default: 4, max: 20)
   --start N               Starting index in page list (default: 0)
   --text                  Export raw wikitext to separate .txt file
+  --database              Upload scraped pages to PostgreSQL database
 ```
 
-**Note:** The scraper automatically cleans all pages. By default, it creates only a JSON file containing both `text` (raw wikitext) and `cleaned_text` (cleaned markdown) fields. Use `--text` flag to also export a separate raw wikitext file.
+**Note:** The scraper automatically cleans all pages. By default, it creates only a JSON file containing both `text` (raw wikitext) and `cleaned_text` (cleaned markdown) fields. Use `--text` flag to also export a separate raw wikitext file. Use `--database` flag to upload to PostgreSQL (requires `.env` file in team_2 folder).
 
 ### fetch_all_links.py
 
@@ -213,11 +210,11 @@ Optional:
 
 ## Common Workflows
 
-### 1. First Time Setup (Already Done)
+### 1. First Time Setup
 
 ```bash
 source venv/bin/activate
-python src/fetch_all_links.py  # Fetches all 3,583 page titles
+python src/fetch_all_links.py  # Fetches all page titles
 ```
 
 ### 2. Sample Testing
@@ -236,7 +233,6 @@ cat results/scraped_data/scraped_pages.json | jq '.pages | length'
 # Scrape entire wiki in manageable batches
 python src/main.py results/all_pages.json --pages 50 --threads 8 --text
 
-# This creates ~72 batch files with 50 pages each
 # Both JSON and text formats for easy viewing
 ```
 
@@ -259,28 +255,6 @@ python src/main.py results/all_pages.json [OPTIONS]
 
 ```bash
 python src/fetch_all_links.py [OPTIONS]
-```
-
-### Interactive Menu
-
-```bash
-python src/index.py
-```
-
-### Single Page Examples
-
-```bash
-# Get wiki statistics
-python src/examples.py stats
-
-# Scrape a specific page
-python src/examples.py page "Main Page"
-
-# Scrape a category
-python src/examples.py category "Students"
-
-# Search for pages
-python src/examples.py search "election"
 ```
 
 ## Output Format
@@ -347,6 +321,8 @@ The '''Page''' with [[links]] and templates.
 - mwparserfromhell 0.7.2 - Wikitext parser
 - beautifulsoup4 4.14.3 - HTML parsing
 - requests 2.32.5 - HTTP library
+- psycopg2-binary 2.9.11 - PostgreSQL adapter
+- python-dotenv 1.2.1 - Environment variables
 
 All dependencies are installed via:
 
@@ -357,6 +333,8 @@ pip install -r requirements.txt
 
 ## Additional Documentation
 
+- `DATABASE_UPLOAD.md` - Database integration guide
+- `WIKITEXT_CLEANING.md` - Wikitext cleaning documentation
 - `QUICK_START.md` - Quick reference guide
 - `SCRAPER_README.md` - Detailed technical documentation
 - `UPDATE_NOTES.md` - Flag system changes
@@ -370,7 +348,7 @@ pip install -r requirements.txt
 - Performance validated: ~0.36-0.40 seconds/page
 - Full project structure organized
 
-## 🚦 Next Steps
+## Next Steps
 
 1. **Activate environment:**
    ```bash

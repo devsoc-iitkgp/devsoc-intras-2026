@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import sys
 from wikitext_cleaner import WikitextCleaner
+from database_uploader import DatabaseUploader
 
 
 class ConcurrentWikiScraper:
@@ -287,6 +288,12 @@ Examples:
     )
     
     parser.add_argument(
+        '--database',
+        action='store_true',
+        help='Upload scraped pages to PostgreSQL database'
+    )
+    
+    parser.add_argument(
         '--start',
         type=int,
         default=0,
@@ -382,6 +389,32 @@ Examples:
         for filename in saved_files:
             print(f"  - scraped_data/{filename}")
         print()
+        
+        # Upload to database if requested
+        if args.database and results:
+            try:
+                uploader = DatabaseUploader()
+                successful, failed = uploader.upload_pages(results)
+                
+                # Delete JSON files after successful upload
+                if successful > 0 and failed == 0:
+                    print("\n✓ All pages uploaded successfully. Cleaning up JSON files...")
+                    deleted_count = 0
+                    for filename in saved_files:
+                        filepath = scraper.output_dir / filename
+                        try:
+                            if filepath.exists():
+                                filepath.unlink()
+                                deleted_count += 1
+                                print(f"  ✓ Deleted: {filename}")
+                        except Exception as e:
+                            print(f"  ✗ Failed to delete {filename}: {e}")
+                    print(f"✓ Cleaned up {deleted_count} file(s)")
+                else:
+                    print(f"\n⚠ Keeping JSON files due to upload errors (failed: {failed})")
+            except Exception as e:
+                print(f"✗ Database upload failed: {e}")
+                print("⚠ Keeping JSON files due to upload failure")
     else:
         # Process all pages at once (no batching)
         results = scraper.scrape_pages_concurrent(pages_to_scrape)
@@ -389,11 +422,38 @@ Examples:
         # Save results to single file
         if results:
             scraper.save_to_json(results, args.output)
+            saved_json_files = [args.output]
             
             # Save raw text file if requested
             if args.text:
                 text_file = args.output.replace('.json', '.txt')
                 scraper.save_to_text(results, text_file)
+            
+            # Upload to database if requested
+            if args.database:
+                try:
+                    uploader = DatabaseUploader()
+                    successful, failed = uploader.upload_pages(results)
+                    
+                    # Delete JSON files after successful upload
+                    if successful > 0 and failed == 0:
+                        print("\n✓ All pages uploaded successfully. Cleaning up JSON files...")
+                        deleted_count = 0
+                        for filename in saved_json_files:
+                            filepath = scraper.output_dir / filename
+                            try:
+                                if filepath.exists():
+                                    filepath.unlink()
+                                    deleted_count += 1
+                                    print(f"  ✓ Deleted: {filename}")
+                            except Exception as e:
+                                print(f"  ✗ Failed to delete {filename}: {e}")
+                        print(f"✓ Cleaned up {deleted_count} file(s)")
+                    else:
+                        print(f"\n⚠ Keeping JSON files due to upload errors (failed: {failed})")
+                except Exception as e:
+                    print(f"✗ Database upload failed: {e}")
+                    print("⚠ Keeping JSON files due to upload failure")
     
     if results:
         # Show sample of scraped data
