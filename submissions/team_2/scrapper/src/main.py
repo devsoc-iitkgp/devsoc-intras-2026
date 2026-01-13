@@ -13,6 +13,7 @@ from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import sys
+from wikitext_cleaner import WikitextCleaner
 
 
 class ConcurrentWikiScraper:
@@ -37,6 +38,9 @@ class ConcurrentWikiScraper:
         
         # Initialize wiki connection (thread-safe)
         self.site = mwclient.Site('wiki.metakgp.org', path='/')
+        
+        # Initialize wikitext cleaner
+        self.cleaner = WikitextCleaner()
     
     def fetch_page(self, page_name: str, index: int, total: int) -> Optional[Dict]:
         """
@@ -59,10 +63,17 @@ class ConcurrentWikiScraper:
                     print(f"[{index}/{total}] ✗ Page '{page_name}' does not exist")
                 return None
             
+            # Fetch raw wikitext
+            raw_text = page.text()
+            
+            # Clean the wikitext to readable Markdown
+            cleaned_text = self.cleaner.clean_wikitext(raw_text)
+            
             page_data = {
                 'name': page.name,
                 'title': page.page_title,
-                'text': page.text(),
+                'text': raw_text,  # Keep original for reference
+                'cleaned_text': cleaned_text,  # Add cleaned version
                 'exists': page.exists,
                 'redirect': page.redirect,
                 'revision': page.revision,
@@ -163,6 +174,23 @@ class ConcurrentWikiScraper:
                 f.write(f"\n\n")
         
         print(f"✓ Saved {len(data)} pages to {filepath}")
+    
+    def save_cleaned_to_text(self, data: List[Dict], filename: str):
+        """Save cleaned text to markdown file"""
+        filepath = self.output_dir / filename
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            for page in data:
+                f.write(f"{'='*80}\n")
+                f.write(f"# {page['name']}\n")
+                f.write(f"{'='*80}\n\n")
+                if 'cleaned_text' in page:
+                    f.write(page['cleaned_text'])
+                else:
+                    f.write(page['text'])
+                f.write(f"\n\n")
+        
+        print(f"✓ Saved {len(data)} cleaned pages to {filepath}")
 
 
 def load_page_list(json_file: str) -> List[str]:
@@ -255,7 +283,7 @@ Examples:
     parser.add_argument(
         '--text',
         action='store_true',
-        help='Also save as text file'
+        help='Also save as text file (raw wikitext)'
     )
     
     parser.add_argument(
@@ -330,7 +358,7 @@ Examples:
                 scraper.save_to_json(batch_results, batch_filename)
                 saved_files.append(batch_filename)
                 
-                # Save text file if requested
+                # Save raw text file if requested
                 if args.text:
                     text_filename = f"{base_name}_batch{batch_number}.txt"
                     scraper.save_to_text(batch_results, text_filename)
@@ -362,6 +390,7 @@ Examples:
         if results:
             scraper.save_to_json(results, args.output)
             
+            # Save raw text file if requested
             if args.text:
                 text_file = args.output.replace('.json', '.txt')
                 scraper.save_to_text(results, text_file)
