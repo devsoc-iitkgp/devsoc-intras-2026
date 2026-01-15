@@ -2,8 +2,8 @@
 name = "metakgp-rag"
 version = "1.0.0"
 description = "MetaKGP RAG System with ChromaDB and Modal"
-readme = "README_RAG.md"
-requires-python = ">=3.8"
+readme = "README.md"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "MetaKGP Team"}
@@ -23,6 +23,11 @@ dependencies = [
     "modal>=0.57.0",
     "psycopg2-binary>=2.9.9",
     "python-dotenv>=1.0.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "groq>=0.4.0",
+    "networkx>=3.2",
+    "pyvis>=0.3.2",
 ]
 
 [project.optional-dependencies]

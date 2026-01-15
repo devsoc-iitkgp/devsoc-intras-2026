@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 from src.services.query_service.router import router as query_router, set_query_service
 from src.services.query_service.service import QueryService
+from src.services.chat_agent.router import router as got_router, set_got_engine
+from src.services.chat_agent.engine import SimplifiedGoTEngine
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +39,10 @@ async def lifespan(app: FastAPI):
     if not modal_url:
         raise RuntimeError("MODAL_URL environment variable not set")
     
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if not groq_api_key:
+        raise RuntimeError("GROQ_API_KEY environment variable not set")
+    
     chroma_dir = os.getenv("CHROMA_DIR", "./chroma_data")
     
     # Initialize query service
@@ -48,8 +54,19 @@ async def lifespan(app: FastAPI):
     )
     set_query_service(query_service)
     
+    # Initialize simplified GoT engine with Llama-3.3-70b
+    logger.info("Initializing Simplified Graph of Thought Engine with Llama-3.3-70b...")
+    got_engine = SimplifiedGoTEngine(
+        modal_url=modal_url,
+        groq_api_key=groq_api_key,
+        query_api_url="http://localhost:8000/query/search",
+        top_k=30  # Retrieve 30 chunks for comprehensive analysis
+    )
+    set_got_engine(got_engine)
+    
     logger.info("All services initialized successfully")
     logger.info(f"Total documents: {query_service.get_document_count()}")
+    logger.info(f"GoT Engine: Llama-3.3-70b with top_k={got_engine.top_k}")
     
     yield
     
@@ -68,6 +85,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(query_router)
+app.include_router(got_router)
 
 
 @app.get("/")
@@ -78,10 +96,18 @@ async def root():
         "version": "2.0.0",
         "services": {
             "query": {
-                "description": "API for MetaKGP WIKI Chatbot",
+                "description": "Semantic search over MetaKGP wiki",
                 "endpoints": {
                     "search": "/query/search (POST)",
                     "health": "/query/health (GET)"
+                }
+            },
+            "got": {
+                "description": "Graph of Thought reasoning service",
+                "endpoints": {
+                    "query": "/got/query (POST)",
+                    "status": "/got/graph-status (GET)",
+                    "health": "/got/health (GET)"
                 }
             }
         },
