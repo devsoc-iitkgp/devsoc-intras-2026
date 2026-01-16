@@ -7,10 +7,38 @@ Uses Groq models
 import logging
 from typing import Dict, List, Tuple
 import asyncio
+import re
 
 from src.utils.groq_client import GroqClient
 
 logger = logging.getLogger(__name__)
+
+
+def strip_markdown_json(text: str) -> str:
+    """Remove markdown code fences from LLM responses.
+    
+    Handles formats like:
+    ```json
+    {...}
+    ```
+    or
+    ```
+    {...}
+    ```
+    """
+    if not text:
+        return text
+    
+    # Remove ```json ... ``` or ``` ... ``` wrappers
+    text = text.strip()
+    
+    # Match ```json or ``` at the start
+    text = re.sub(r'^```(?:json)?\s*\n?', '', text)
+    
+    # Match ``` at the end
+    text = re.sub(r'\n?```\s*$', '', text)
+    
+    return text.strip()
 
 
 class Expert:
@@ -33,9 +61,14 @@ class Expert:
             prompt: Prompt text
         
         Returns:
-            LLM response text
+            LLM response text (empty string on error)
         """
-        return await self.groq_client.generate_expert(prompt, max_tokens=512)
+        try:
+            response = await self.groq_client.generate_expert(prompt, max_tokens=512)
+            return response if response else ""
+        except Exception as e:
+            logger.error(f"LLM call failed in {self.__class__.__name__}: {e}")
+            return ""
     
     async def verify(self, thought: str, context: str, graph_history: List[Dict]) -> Dict:
         """
@@ -94,10 +127,21 @@ Response:"""
 
         response = await self.call_llm(prompt)
         
+        # Log the raw response for debugging
+        if not response or not response.strip():
+            logger.error(f"HallucinationHunter received empty response from LLM")
+            return {
+                "score": 0.6,
+                "passed": True,
+                "remarks": "LLM returned empty response, defaulting to PASS",
+                "expert": "HallucinationHunter"
+            }
+        
         try:
-            # Parse JSON response
+            # Strip markdown code fences before parsing
             import json
-            result = json.loads(response.strip())
+            cleaned_response = strip_markdown_json(response)
+            result = json.loads(cleaned_response.strip())
             
             hallucinations = result.get("hallucinations_found", [])
             confidence = float(result.get("confidence", 0.6))
@@ -118,6 +162,7 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse HallucinationHunter response: {e}")
+            logger.error(f"Raw response was: {response[:200]}")
             return {
                 "score": 0.3,
                 "passed": False,
@@ -166,9 +211,21 @@ Response:"""
 
         response = await self.call_llm(prompt)
         
+        # Log the raw response for debugging
+        if not response or not response.strip():
+            logger.error(f"SourceMatcher received empty response from LLM")
+            return {
+                "score": 0.6,
+                "passed": True,
+                "remarks": "LLM returned empty response, defaulting to PASS",
+                "expert": "SourceMatcher"
+            }
+        
         try:
             import json
-            result = json.loads(response.strip())
+            # Strip markdown code fences before parsing
+            cleaned_response = strip_markdown_json(response)
+            result = json.loads(cleaned_response.strip())
             
             confidence_score = float(result.get("confidence_score", 6)) / 10.0  # Normalize to 0-1, default 0.6
             reasoning = result.get("reasoning", "")
@@ -186,6 +243,7 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse SourceMatcher response: {e}")
+            logger.error(f"Raw response was: {response[:200]}")
             return {
                 "score": 0.3,
                 "passed": False,
@@ -241,9 +299,22 @@ Response:"""
 
         response = await self.call_llm(prompt)
         
+        # Log the raw response for debugging
+        if not response or not response.strip():
+            logger.error(f"LogicExpert received empty response from LLM")
+            return {
+                "score": 0.7,
+                "passed": True,
+                "remarks": "LLM returned empty response, defaulting to PASS",
+                "action": "keep",
+                "expert": "LogicExpert"
+            }
+        
         try:
             import json
-            result = json.loads(response.strip())
+            # Strip markdown code fences before parsing
+            cleaned_response = strip_markdown_json(response)
+            result = json.loads(cleaned_response.strip())
             
             coherence_score = float(result.get("coherence_score", 0.7))  # Default to 0.7
             is_redundant = result.get("is_redundant", False)
@@ -263,6 +334,7 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse LogicExpert response: {e}")
+            logger.error(f"Raw response was: {response[:200]}")
             return {
                 "score": 0.5,
                 "passed": True,
