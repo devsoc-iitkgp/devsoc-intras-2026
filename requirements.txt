@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+sentence-transformers
+torch
+faiss-cpu
+numpy
+tqdm
+mwclient
+mwparserfromhell
+networkx
+google-genai
+chromadb
+requests
