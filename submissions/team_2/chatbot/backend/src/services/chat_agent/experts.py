@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def strip_markdown_json(text: str) -> str:
-    """Remove markdown code fences from LLM responses.
+    """Remove markdown code fences from LLM responses and extract JSON.
     
     Handles formats like:
     ```json
@@ -25,18 +25,34 @@ def strip_markdown_json(text: str) -> str:
     ```
     {...}
     ```
+    Also handles cases where there's extra text after the JSON.
     """
     if not text:
         return text
     
-    # Remove ```json ... ``` or ``` ... ``` wrappers
     text = text.strip()
     
     # Match ```json or ``` at the start
     text = re.sub(r'^```(?:json)?\s*\n?', '', text)
     
-    # Match ``` at the end
-    text = re.sub(r'\n?```\s*$', '', text)
+    # If there's a closing ```, extract everything before it
+    if '```' in text:
+        text = text.split('```')[0].strip()
+    
+    # Try to extract just the JSON object/array
+    # Find the first { or [ and match to its closing bracket
+    import json
+    for i, char in enumerate(text):
+        if char in '{[':
+            # Try to parse from this position
+            try:
+                # Use JSONDecoder to find where valid JSON ends
+                decoder = json.JSONDecoder()
+                obj, end_idx = decoder.raw_decode(text[i:])
+                # Return the valid JSON string
+                return text[i:i+end_idx]
+            except json.JSONDecodeError:
+                continue
     
     return text.strip()
 
@@ -162,7 +178,8 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse HallucinationHunter response: {e}")
-            logger.error(f"Raw response was: {response[:200]}")
+            logger.error(f"Raw response was: {response}")
+            logger.error(f"Cleaned response was: {cleaned_response}")
             return {
                 "score": 0.3,
                 "passed": False,
@@ -243,7 +260,8 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse SourceMatcher response: {e}")
-            logger.error(f"Raw response was: {response[:200]}")
+            logger.error(f"Raw response was: {response}")
+            logger.error(f"Cleaned response was: {cleaned_response}")
             return {
                 "score": 0.3,
                 "passed": False,
@@ -334,7 +352,8 @@ Response:"""
         
         except Exception as e:
             logger.error(f"Failed to parse LogicExpert response: {e}")
-            logger.error(f"Raw response was: {response[:200]}")
+            logger.error(f"Raw response was: {response}")
+            logger.error(f"Cleaned response was: {cleaned_response}")
             return {
                 "score": 0.5,
                 "passed": True,
