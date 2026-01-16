@@ -1,98 +1,186 @@
-# DevSoc 2026 Hackathon
-## Advanced LLM Reasoning & Verification Challenge
+# Team Name: Team 2
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Status: Active](https://img.shields.io/badge/Status-Active-success)](https://github.com/topics/hackathon)
+## Team Members
+* Member 1: Ruhaan Kakar - [invincible1786](https://github.com/invincible1786)
+* Member 2: Pawan Manighadhan - [pawan188](https://github.com/pawan188)
+* Member 3: Sakshi S. Dwivedi - [dwivedi-jiii](https://github.com/dwivedi-jiii)
+* Member 4: Arsh Goyal - [arshGoyalDev](https://github.com/arshGoyalDev)
 
-> **Mission:** Build "GraphMind"—an advanced conversational AI that uses **Graph of Thoughts (GoT)** and **Mixture of Experts (MoE)** to provide verified answers using **ONLY** data scraped from [MetaKGP](https://wiki.metakgp.org/).
+## Technical Implementation
 
-## Schedule & Timeline
-**Duration:** 5 Days (Monday - Friday)
+### 1. Data Pipeline (Scraping)
+* Tools used: Python scraper (mwclient, mwparserfromhell, BeautifulSoup), concurrent/multi-threaded scraper, batch output to JSON.
+* Strategy: We fetch the full page list from MetaKGP, then scrape pages in concurrent batches. Wikitext is cleaned into readable Markdown, infoboxes are extracted into a summary block, and links/templates are normalized.
+* Chunking & Indexing: Cleaned page text is chunked (configurable) and sent to the indexer which produces embeddings (Modal service) and stores vectors in ChromaDB for RAG.
+* Key files:
+  - `submissions/team_2/scraper/src/main.py` — concurrent scraper and batch output
+  - `submissions/team_2/scraper/src/wikitext_cleaner.py` — converts wikitext → cleaned Markdown + infobox extraction
+  - `submissions/team_2/scraper/results/` — contains `all_pages.json`, `scraped_data/` with cleaned pages
 
-| Event | Date | Time | Details |
-| :--- | :--- | :--- | :--- |
-| **Kickoff** | **Mon, Jan 12** | 5:00 PM | Problem Release & Team Formation |
-| **Code Freeze** | **Fri, Jan 16** | **12:00 PM** | **Submission Deadline (Strict)** |
+### 2. Graph of Thoughts (GoT)
+* Reasoning model: The system represents reasoning as a directed graph of "thought" nodes. Each node is derived from retrieved chunks (facts) from MetaKGP pages. Edges represent logical or topical connections discovered during retrieval and candidate generation.
+* Node structure: extracted fact / claim text, source metadata (page title, chunk id, score), and a small provenance snippet.
+* Edge logic: edges are created when two facts share strong semantic similarity, explicit links, or when the Logic Expert recommends merging nodes. This allows connecting a "Society" page to a related "Student" or "Event" page via intermediate facts.
+* Key files:
+  - `submissions/team_2/chatbot/backend/src/services/chat_agent/engine.py` — orchestrates GoT construction and search
+  - `submissions/team_2/chatbot/backend/src/services/chat_agent/router.py` — exposes endpoints for the GoT-driven query flow
 
-## 1. The Problem: "Trust, but Verify"
+### 3. Mixture of Experts (MoE) Verification
+We implemented a small Gauntlet of three experts that verify each candidate thought before it is accepted into the reasoning graph or included in the final answer.
 
-Large Language Models (LLMs) often hallucinate when dealing with niche, institutional knowledge. They generate plausible-sounding but factually incorrect information because they lack real-time access to specific local data.
+1. Expert 1 — Source Matcher:
+   - Verifies whether the meaning of a thought is semantically contained in the retrieved context chunks.
+   - Returns a confidence score and a short reasoning string.
+   - Implemented in `src/services/chat_agent/experts.py` as `SourceMatcher`.
 
-### The Challenge
-Your task is to build a chatbot that answers questions **strictly** using data you scrape from **MetaKGP / MetaWiki**.
+2. Expert 2 — Hallucination Hunter:
+   - Detects claims in a thought that are unsupported by the context and lists significant unsupported claims.
+   - Implements JSON-based verdicts (PASS/FAIL) and a confidence metric.
+   - Implemented in `src/services/chat_agent/experts.py` as `HallucinationHunter`.
 
-**Why this is hard:**
-1. **No Pre-made Dataset:** You must build the pipeline to scrape, clean, and index the data yourself.
-2. **Stale Data Risks:** LLMs have outdated internal knowledge about IIT Kharagpur; you must force them to use *your* scraped data.
-3. **Hallucination:** If the scraper misses a page, the LLM might make something up. Your verification system must prevent this.
+3. Expert 3 — Logic Expert:
+   - Ensures the candidate thought fits coherently into the existing reasoning chain (graph history), flags redundancy, and recommends actions: keep | merge | discard.
+   - Implemented in `src/services/chat_agent/experts.py` as `LogicExpert`.
 
-## 2. Technical Pillars
+Orchestration: `MoEGauntlet` runs the three experts in parallel and computes a weighted vote to decide whether a thought passes. The project uses a lenient weighted formula (source: 40%, hallucination: 30%, logic: 30%) and conservative pass thresholds so the system prioritizes recall while still surfacing provenance and failure reasons.
 
-### Team Constraint
-* **Team Size:** Strictly **4 Members** per team.
+## Setup Instructions
 
-### Core Requirements
-Your solution **must** integrate these three techniques:
+### Prerequisites
+* Python 3.11+ / 3.13+ (project tested with modern Python versions)
+* Node 18+ (for the frontend dev server)
+* PostgreSQL (optional but required for the indexer if using DB upload)
+* Modal account (for GPU-accelerated embeddings service)
+* Groq API key (required for LLM inference) - get from https://console.groq.com/
 
-#### 1. Data Pipeline (Scraping & Indexing)
-* **Scraper:** You must write a script to crawl `wiki.metakgp.org` (and related MetaWiki pages).
-* **Ingestion:** Clean the HTML/Wikitext and chunk it for retrieval (RAG).
-* **Constraint:** **NO external datasets** allowed. If the answer isn't on MetaKGP, the bot should say "I don't know."
+### Environment Variables
 
-#### 2. Graph of Thoughts (GoT)
-Model reasoning as a directed graph.
-* **Nodes:** Facts extracted from your scraped documents.
-* **Edges:** Logical connections between different wiki pages.
-* **Goal:** Connect disparate pieces of info (e.g., connect a *Society* page to a *Student* page).
+**Important:** This project uses a **single unified `.env` file** at `submissions/team_2/.env`
 
-#### 3. Mixture of Experts (MoE) Verification
-Implement specific verifiers that check against your scraped data:
-1. **Source Matcher:** "Does the text in the retrieved chunk actually support this claim?"
-2. **Hallucination Hunter:** "Is the bot inventing details not present in the scraped context?"
-3. **Logic Expert:** "Does the conclusion follow from the premises?"
+1. Copy the example configuration:
+```bash
+cd submissions/team_2
+cp .env.example .env
+```
 
-## 3. Expected System Behavior
+2. Edit `.env` with your credentials:
+```bash
+nano .env
+```
 
-### Example Query
-**User:** *"Who are the governors of the Technology Literary Society?"*
+Required variables:
+```bash
+# Database (PostgreSQL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=metakgp_content
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_SSLMODE=require
 
-**System Output:**
-* **Step 1 (Scrape/Retrieve):** System searches vector store for "Technology Literary Society governors".
-* **Step 2 (Reasoning Paths):**
-    * *Path A:* Claims "John Doe" (Based on 2018 data). -> **Context Expert:** Outdated.
-    * *Path B:* Claims "Jane Smith" (Based on hallucination). -> **Source Matcher:** Citation missing.
-    * *Path C:* Claims "Current Governors listed in 2025 section". -> **Source Matcher:** Verified.
-* **Step 3 (Final Answer):** "The current governors are... [List]. (Source: MetaKGP/TLS_Page)"
+# Modal Services (Embeddings only)
+MODAL_URL=https://your-workspace--metakgp-embeddings-fastapi-app.modal.run
 
-## 4. Rules & Constraints
+# LLM API Keys (Required)
+# Groq hosts Llama models for GoT reasoning and MoE verification
+GROQ_API_KEY=your_groq_api_key_here
 
-### Data Source Rules (Strict)
-1. **Allowed Source:** ONLY `wiki.metakgp.org` (and associated MetaWiki domains).
-2. **Forbidden:** Wikipedia, Google Search API, or pre-trained knowledge usage.
-3. **Scraping:** You must implement the scraping logic. Using a pre-downloaded dump is **not allowed**—your code must show how data is fetched.
+# Backend Configuration (use default values)
+CHROMA_DIR=./chroma_data
+CACHE_DIR=./cache
+HOST=0.0.0.0
+PORT=8000
+BATCH_SIZE=100
+```
 
-### Tech Stack
-* **Open Source Only:** (LangChain, Scrapy, BeautifulSoup, Selenium, etc.)
-* **API Limits:** Stay within provided free tier limits ($50/team).
+**Note:** The scraper, backend, and all services read from this single `.env` file at the project root (`submissions/team_2/.env`).
 
-## 5. Evaluation Criteria
+**LLM Architecture:**
+- **Embeddings**: Modal-hosted `all-MiniLM-L6-v2` (for semantic search)
+- **LLM Inference**: Groq-hosted `Llama-4-Scout-17b-16e` (for reasoning, MoE verification)
 
-| Criteria | Points | Description |
-| :--- | :--- | :--- |
-| **Data Pipeline** | **30** | Effectiveness of the scraper, cleaning, and indexing strategies. |
-| **Verification (MoE)** | **30** | Ability to detect and stop hallucinations using the experts. |
-| **MetaKGP Fidelity** | **20** | **CRITICAL:** Answers must be traceable back to specific MetaKGP URLs. |
-| **UX & Demo** | **20** | Working chatbot, citation links, and graph visualization. |
+### How to Run Scraper
+1. Create and activate a Python venv in `submissions/team_2/scraper` and install requirements:
 
-## 6. How to Submit
+```
+cd submissions/team_2/scraper
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-**Deadline:** Friday, Jan 16 @ 12:00 PM.
+2. Fetch all page links (one-time):
+```
+python src/fetch_all_links.py
+```
 
-1. **Fork** this repository.
-2. Create a folder: `submissions/YOUR_TEAM_NAME`.
-3. Include your **Scraper Code** and **Chatbot Code**.
-4. Add a `README.md` using the [Submission Template](./SUBMISSION_TEMPLATE.md).
-5. Open a **Pull Request (PR)** to the `main` branch.
+3. Scrape pages (examples):
+```
+# Quick test (10 pages)
+python src/main.py results/all_pages.json --limit 10
 
-### Deliverables Checklist
-* [ ] Source Code (Scraper + Bot).
+# Batch scrape (100 pages in batches of 25)
+python src/main.py results/all_pages.json --limit 100 --pages 25 --threads 8
+
+# Full wiki (batches of 50)
+python src/main.py results/all_pages.json --pages 50 --threads 4
+```
+
+### How to Run Bot (Backend)
+1. Setup environment and install dependencies:
+
+```bash
+cd submissions/team_2/chatbot/backend
+uv venv
+uv pip install -e .
+python -m spacy download en_core_web_sm
+```
+
+2. Ensure `.env` exists at project root with required variables (see Environment Variables section above)
+
+3. (Optional) Deploy Modal embedding service and set `MODAL_URL` in `.env`:
+
+```bash
+modal setup
+modal deploy src/utils/modal_embeddings.py
+# copy the returned URL into MODAL_URL in submissions/team_2/.env
+```
+
+4. Start services:
+```bash
+./start.sh
+# or run individual services:
+# uvicorn src.app.main:app --reload
+```
+
+### How to Run Frontend
+```
+cd submissions/team_2/chatbot/frontend
+npm install
+npm run dev
+```
+The frontend expects the backend query route at `http://localhost:8000/got/query` by default.
+
+## 📸 Screenshots
+* [Place screenshot of Graph visualization here]
+* [Place screenshot of Chat Interface here]
+
+## Notes on Behavior & Constraints
+* Data Source Rule: All answers must be traceable to scraped MetaKGP content. If the system cannot find supporting evidence it returns "I don't know." (enforced by the Source Matcher and Hallucination Hunter).
+* Provenance: Final answers include page titles and short source snippets for traceability.
+* Extensibility: The FastAPI app is modular; new experts or reasoning strategies can be added under `src/services/chat_agent/` and mounted via routers.
+
+## How we validated
+* Scraper: sample runs (10/100 pages) and cleaned output checked in `submissions/team_2/scraper/results/scraped_data/`.
+* Indexing: ChromaDB persisted vectors in `chroma_data/` and embedding calls are routed to Modal or a provided embedding endpoint.
+* MoE: `MoEGauntlet` tests experts in parallel; the code is in `src/services/chat_agent/experts.py`.
+
+## Troubleshooting
+* Check logs under `submissions/team_2/chatbot/backend/logs/` (indexer.log, query_service.log).
+* Common fixes: ensure `.env` is populated, Modal URL points to a deployed embedding service, and PostgreSQL credentials are correct when using DB upload.
+
+## Deliverables Checklist
+* [x] Scraper (source + results)
+* [x] Backend (RAG indexer + FastAPI query service)
+* [x] Frontend (React chat UI)
+* [ ] Demo video (link placeholder)
+* [ ] Hosted demo (optional)

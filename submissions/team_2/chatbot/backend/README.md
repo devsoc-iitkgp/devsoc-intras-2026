@@ -24,24 +24,38 @@ python -m spacy download en_core_web_sm
 
 ### 3. Configure Environment
 ```bash
-# Copy example config
+# The unified .env file is in the team_2 root directory
+# Copy the example config
+cd ../../  # Go to team_2 root
 cp .env.example .env
 
 # Edit with your credentials
 nano .env
 ```
 
-Required variables:
+Required variables (see `submissions/team_2/.env.example` for full list):
 ```bash
+# Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=metakgp
+DB_NAME=metakgp_content
 DB_USER=username
 DB_PASSWORD=password
 DB_SSLMODE=require
 
+# Modal Services (Embeddings only)
 MODAL_URL=https://your-workspace--metakgp-embeddings-fastapi-app.modal.run
+
+# LLM API Keys (Required)
+# Groq hosts Llama models for all LLM inference
+GROQ_API_KEY=your_groq_api_key_here
 ```
+
+**Note:** The `.env` file should be at `submissions/team_2/.env` (project root), not in the backend directory.
+
+**LLM Architecture:**
+- Embeddings: Modal-hosted `all-MiniLM-L6-v2` 
+- LLM: Groq-hosted `Llama-4-Scout-17b-16e` (GoT reasoning + MoE verification)
 
 ### 4. Deploy Modal Embedding Service
 ```bash

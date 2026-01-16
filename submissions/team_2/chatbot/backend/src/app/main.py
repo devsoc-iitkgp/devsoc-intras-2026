@@ -4,9 +4,11 @@ Main application with all service routers
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 from src.services.query_service.router import router as query_router, set_query_service
@@ -14,8 +16,15 @@ from src.services.query_service.service import QueryService
 from src.services.chat_agent.router import router as got_router, set_got_engine
 from src.services.chat_agent.engine import SimplifiedGoTEngine
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from team_2 root directory
+env_path = Path(__file__).resolve().parents[4] / '.env'  # Go up to team_2/
+if env_path.exists():
+    load_dotenv(env_path)
+    logging.info(f"Loaded .env from {env_path}")
+else:
+    # Fallback to default behavior (search up the directory tree)
+    load_dotenv()
+    logging.warning(f".env not found at {env_path}, using default load_dotenv()")
 
 # Setup logging
 logging.basicConfig(
@@ -80,6 +89,15 @@ app = FastAPI(
     description="API for MetaKGP WIKI Chatbot",
     version="2.0.0",
     lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins like ["http://localhost:5173"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

@@ -5,11 +5,18 @@ set -e
 
 echo " Starting MetaKGP RAG + FastAPI Server"
 
-# Load environment variables
-if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+# Get the team_2 root directory (5 levels up from start.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEAM_2_ROOT="$(cd "$SCRIPT_DIR/../../" && pwd)"
+ENV_FILE="$TEAM_2_ROOT/.env"
+
+# Load environment variables from unified .env at team_2 root
+if [ -f "$ENV_FILE" ]; then
+    echo " Loading .env from: $ENV_FILE"
+    export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
 else
-    echo " .env file not found. Please create one from .env.example"
+    echo " .env file not found at: $ENV_FILE"
+    echo " Please create one from: $TEAM_2_ROOT/.env.example"
     exit 1
 fi
 

@@ -61,12 +61,14 @@ python src/main.py results/all_pages.json --limit 100 --pages 25 --threads 8
 # Full wiki (all 3,583 pages in batches of 50)
 python src/main.py results/all_pages.json --pages 50 --threads 4
 
-# With database upload (requires .env file in team_2 folder)
+# With database upload (requires .env file at submissions/team_2/.env)
 python src/main.py results/all_pages.json --limit 10 --database
 
 # Optional: Also export raw wikitext to separate text file
 python src/main.py results/all_pages.json --limit 10 --text
 ```
+
+**Note:** The `--database` flag requires database credentials in the unified `.env` file at `submissions/team_2/.env` (see main README for setup).
 
 ### 4. Check Results
 

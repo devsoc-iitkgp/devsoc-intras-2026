@@ -378,8 +378,15 @@ class MetaKGPIndexer:
 
 def main():
     """Main entry point"""
-    # Load environment variables
-    load_dotenv()
+    # Load environment variables from team_2 root directory
+    env_path = Path(__file__).resolve().parents[5] / '.env'  # Go up to team_2/
+    if env_path.exists():
+        load_dotenv(env_path)
+        logger.info(f"Loaded .env from {env_path}")
+    else:
+        # Fallback to default behavior
+        load_dotenv()
+        logger.warning(f".env not found at {env_path}, using default load_dotenv()")
     
     # Construct DATABASE_URL from environment variables
     db_host = os.getenv("DB_HOST")
