@@ -1,0 +1,32 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Environments
+.env
+.venv/
+env/
+venv/
+
+# Editor/IDE-specific files
+.vscode/
+.idea/
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Logs and databases
+*.log
+*.sqlite3
+db.sqlite3
+
+clean_data 
+chunked_data 
+data 
