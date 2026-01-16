@@ -161,8 +161,8 @@ npm run dev
 The frontend expects the backend query route at `http://localhost:8000/got/query` by default.
 
 ## 📸 Screenshots
-* [Place screenshot of Graph visualization here]
-* [Place screenshot of Chat Interface here]
+* <img width="1882" height="1161" alt="image" src="https://github.com/user-attachments/assets/657f1da5-8956-4b1f-9678-177a9106b5df" />
+
 
 ## Notes on Behavior & Constraints
 * Data Source Rule: All answers must be traceable to scraped MetaKGP content. If the system cannot find supporting evidence it returns "I don't know." (enforced by the Source Matcher and Hallucination Hunter).
