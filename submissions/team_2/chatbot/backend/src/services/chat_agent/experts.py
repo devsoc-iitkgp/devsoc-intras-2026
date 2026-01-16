@@ -25,21 +25,22 @@ def strip_markdown_json(text: str) -> str:
     ```
     {...}
     ```
-    Also handles cases where there's extra text after the JSON.
+    Also handles cases where there's extra text before or after the JSON.
     """
     if not text:
         return text
     
     text = text.strip()
     
-    # Match ```json or ``` at the start
-    text = re.sub(r'^```(?:json)?\s*\n?', '', text)
+    # First, try to find JSON within code fences
+    # Pattern: ```json ... ``` or ``` ... ```
+    code_fence_pattern = r'```(?:json)?\s*\n?(.*?)\n?```'
+    matches = re.findall(code_fence_pattern, text, re.DOTALL)
+    if matches:
+        # Use the last match (in case there are multiple)
+        text = matches[-1].strip()
     
-    # If there's a closing ```, extract everything before it
-    if '```' in text:
-        text = text.split('```')[0].strip()
-    
-    # Try to extract just the JSON object/array
+    # Now try to extract just the JSON object/array
     # Find the first { or [ and match to its closing bracket
     import json
     for i, char in enumerate(text):
@@ -132,14 +133,14 @@ RULES:
 4. Be lenient with paraphrasing and reasonable interpretations
 5. Only flag clear contradictions or completely unsupported claims
 
-Return ONLY valid JSON:
+CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
+
+Output format:
 {{
     "hallucinations_found": ["list significant unsupported claims"],
     "confidence": 0.0-1.0,
     "verdict": "PASS" or "FAIL"
-}}
-
-Response:"""
+}}"""
 
         response = await self.call_llm(prompt)
         
@@ -217,14 +218,14 @@ Instructions:
 2. Is the Thought a reasonable interpretation or inference from the Context?
 3. Rate your confidence from 1-10 (be generous).
 
-Return ONLY a JSON with:
+CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
+
+Output format:
 {{
     "confidence_score": 1-10,
     "reasoning": "brief explanation",
     "verdict": "PASS" or "FAIL"
-}}
-
-Response:"""
+}}"""
 
         response = await self.call_llm(prompt)
         
@@ -305,15 +306,15 @@ Instructions:
 2. Is it somewhat redundant but still valuable?
 3. Does it contribute to answering the question?
 
-Return ONLY a JSON with:
+CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
+
+Output format:
 {{
     "coherence_score": 0.0-1.0,
     "is_redundant": true/false,
     "action": "keep" | "merge" | "discard",
     "remarks": "brief explanation"
-}}
-
-Response:"""
+}}"""
 
         response = await self.call_llm(prompt)
         
