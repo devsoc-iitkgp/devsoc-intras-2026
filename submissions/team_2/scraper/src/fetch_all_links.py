@@ -2,6 +2,7 @@
 """
 Fetch all page links from MetaKGP Wiki's Special:AllPages
 Saves the complete list of page titles to a JSON file
+Default output location: ./results/
 """
 
 import requests
@@ -9,6 +10,7 @@ from bs4 import BeautifulSoup
 import json
 import time
 import re
+from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs
 from typing import List, Optional
 
@@ -106,39 +108,61 @@ class AllPagesFetcher:
         
         return all_titles
     
-    def save_to_json(self, titles: List[str], filename: str = "all_pages.json"):
-        """Save page titles to JSON file"""
+    def save_to_json(self, titles: List[str], filename: str = "all_pages.json", output_dir: str = "./results"):
+        """Save page titles to JSON file
+        
+        Args:
+            titles: List of page titles
+            filename: Output filename
+            output_dir: Output directory path (default: ./results)
+        """
+        # Create output directory if it doesn't exist
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        full_path = output_path / filename
+        
         data = {
             "total_pages": len(titles),
             "fetched_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "pages": titles
         }
         
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(full_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         
-        print(f"\n✓ Saved {len(titles)} page titles to {filename}")
+        print(f"\n✓ Saved {len(titles)} page titles to {full_path}")
     
-    def save_to_text(self, titles: List[str], filename: str = "all_pages.txt"):
-        """Save page titles to text file (one per line)"""
-        with open(filename, 'w', encoding='utf-8') as f:
+    def save_to_text(self, titles: List[str], filename: str = "all_pages.txt", output_dir: str = "./results"):
+        """Save page titles to text file (one per line)
+        
+        Args:
+            titles: List of page titles
+            filename: Output filename
+            output_dir: Output directory path (default: ./results)
+        """
+        # Create output directory if it doesn't exist
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        full_path = output_path / filename
+        
+        with open(full_path, 'w', encoding='utf-8') as f:
             for title in titles:
                 f.write(f"{title}\n")
         
-        print(f"✓ Saved {len(titles)} page titles to {filename}")
+        print(f"✓ Saved {len(titles)} page titles to {full_path}")
 
 
 def main():
-    """Main function"""
+    """Main function - saves to ./results directory by default"""
     fetcher = AllPagesFetcher()
     
     # Fetch all page links
     all_titles = fetcher.fetch_all_pages()
     
     if all_titles:
-        # Save to both JSON and text formats
-        fetcher.save_to_json(all_titles, "all_pages.json")
-        fetcher.save_to_text(all_titles, "all_pages.txt")
+        # Save to ./results directory
+        fetcher.save_to_json(all_titles)
+        fetcher.save_to_text(all_titles)
         
         # Show some sample titles
         print("\n" + "="*70)
