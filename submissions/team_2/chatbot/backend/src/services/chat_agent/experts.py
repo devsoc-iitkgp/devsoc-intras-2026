@@ -110,6 +110,7 @@ class HallucinationHunter(Expert):
     async def verify(self, thought: str, context: str, graph_history: List[Dict]) -> Dict:
         """
         Check if the thought contains any information not present in the context
+        Uses STRICT verification - only explicit facts from context are allowed
         
         Returns:
             {
@@ -118,7 +119,7 @@ class HallucinationHunter(Expert):
                 "remarks": str
             }
         """
-        prompt = f"""You are a Hallucination Hunter for MetaKGP wiki verification. Your job is fact-checking.
+        prompt = f"""You are a Hallucination Hunter for MetaKGP wiki verification. Your job is to detect if the bot is making up details.
 
 Context from MetaKGP wiki:
 {context}
@@ -126,21 +127,34 @@ Context from MetaKGP wiki:
 Thought to Verify:
 {thought}
 
-RULES:
-1. Check if major factual claims in the Thought are supported by the Context
-2. Minor details or reasonable inferences are acceptable
-3. If the Thought says "not available" or "insufficient information", give it a PASS
-4. Be lenient with paraphrasing and reasonable interpretations
-5. Only flag clear contradictions or completely unsupported claims
+STRICT ANALYSIS PROTOCOL:
+1. What specific details does the Thought make?
+2. Which of these details are ACTUALLY present in the Context?
+3. Which details appear to be INVENTED or INFERRED (not in the context)?
+
+Be STRICT: If something isn't explicitly in the context, it's hallucination.
+
+Examples:
+✓ PASS: Context says "John is President of TFPS" → Thought: "John leads TFPS" (reasonable paraphrase)
+✗ FAIL: Context says "John is President of TFPS" → Thought: "John has been President since 2020" (invented date)
+✓ PASS: Thought says "Information not available" or "Insufficient information" (acknowledging limitation)
+✗ FAIL: Context has no mention of topic X → Thought makes specific claims about X (pure hallucination)
 
 CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
 
 Output format:
 {{
-    "hallucinations_found": ["list significant unsupported claims"],
+    "hallucinations_found": ["list specific details that are NOT in the context"],
     "confidence": 0.0-1.0,
     "verdict": "PASS" or "FAIL"
-}}"""
+}}
+
+Guidelines for confidence:
+- 0.9-1.0: Definitely hallucinating, multiple invented details
+- 0.7-0.8: Likely hallucinating, some unsupported claims
+- 0.5-0.6: Borderline, minor unsupported inferences
+- 0.3-0.4: Mostly grounded, reasonable interpretations
+- 0.0-0.2: Fully grounded in context"""
 
         response = await self.call_llm(prompt)
         
@@ -196,7 +210,8 @@ class SourceMatcher(Expert):
     
     async def verify(self, thought: str, context: str, graph_history: List[Dict]) -> Dict:
         """
-        Check if the meaning of the thought is contained in the retrieved chunks
+        Check if the meaning of the thought is directly supported by the retrieved chunks
+        Uses STRICT verification - requires explicit support in context
         
         Returns:
             {
@@ -205,7 +220,7 @@ class SourceMatcher(Expert):
                 "remarks": str
             }
         """
-        prompt = f"""You are a Source Matcher. Your job is to verify that the Thought's MEANING is fully supported by the Context.
+        prompt = f"""You are a Source Matcher expert. Your job is to verify if a claim is directly supported by source text.
 
 Context from MetaKGP wiki:
 {context}
@@ -213,19 +228,38 @@ Context from MetaKGP wiki:
 Thought to Verify:
 {thought}
 
-Instructions:
-1. Does the Context contain information that reasonably supports this Thought?
-2. Is the Thought a reasonable interpretation or inference from the Context?
-3. Rate your confidence from 1-10 (be generous).
+STRICT VERIFICATION PROTOCOL:
+Question: Does the SOURCE TEXT explicitly contain information that directly supports this Thought?
+
+Analysis Steps:
+1. Identify the key claims in the Thought
+2. For each claim, search the Context for explicit supporting evidence
+3. A claim is supported ONLY if the Context contains the same or equivalent information
+4. Paraphrasing is acceptable, but inferences beyond what's stated are NOT
+
+Examples:
+✓ PASS: Context: "TFPS conducts photography workshops" → Thought: "Technology Film and Photography Society organizes photography workshops"
+✓ PASS: Context: "John is VP of TSG" → Thought: "John holds the Vice President position at Technology Students' Gymkhana"
+✗ FAIL: Context: "TFPS has 50 members" → Thought: "TFPS is the largest society" (unsupported comparison)
+✗ FAIL: Context mentions "workshop" → Thought: "weekly workshop series" (added frequency not in context)
+
+Be STRICT: The source must actually contain the claim, not just related information.
 
 CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
 
 Output format:
 {{
-    "confidence_score": 1-10,
-    "reasoning": "brief explanation",
-    "verdict": "PASS" or "FAIL"
-}}"""
+    "verdict": "YES" or "NO",
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Brief explanation of which claims are/aren't supported"
+}}
+
+Confidence Guidelines:
+- 1.0: All claims explicitly in context
+- 0.8-0.9: Most claims supported, minor paraphrasing
+- 0.6-0.7: Some claims supported, some inferred
+- 0.4-0.5: Few claims supported, mostly inferred
+- 0.0-0.3: Claims not in context or contradicted"""
 
         response = await self.call_llm(prompt)
         
@@ -245,15 +279,16 @@ Output format:
             cleaned_response = strip_markdown_json(response)
             result = json.loads(cleaned_response.strip())
             
-            confidence_score = float(result.get("confidence_score", 6)) / 10.0  # Normalize to 0-1, default 0.6
+            verdict = result.get("verdict", "NO")
+            confidence = float(result.get("confidence", 0.5))
             reasoning = result.get("reasoning", "")
-            verdict = result.get("verdict", "PASS")  # Default to PASS
             
-            # More lenient: pass if confidence >= 0.5 or verdict is PASS
-            passed = verdict == "PASS" or confidence_score >= 0.5
+            # Strict: only pass if verdict is YES AND confidence >= 0.6
+            passed = verdict == "YES" and confidence >= 0.6
+            score = confidence if passed else confidence * 0.5  # Penalize failures
             
             return {
-                "score": confidence_score,
+                "score": score,
                 "passed": passed,
                 "remarks": reasoning,
                 "expert": "SourceMatcher"
@@ -278,7 +313,8 @@ class LogicExpert(Expert):
     
     async def verify(self, thought: str, context: str, graph_history: List[Dict]) -> Dict:
         """
-        Check if the thought fits logically in the reasoning chain
+        Check if the thought follows logically from the premises in the context
+        Uses formal logic principles to verify reasoning
         
         Returns:
             {
@@ -293,28 +329,72 @@ class LogicExpert(Expert):
         for i, node in enumerate(graph_history[-3:], 1):
             history_text += f"{i}. {node.get('thought', '')}\n"
         
-        prompt = f"""You are a Logic Expert. Your job is to ensure the reasoning chain is coherent and non-redundant.
+        prompt = f"""You are a Logic Expert. Your job is to ensure logical consistency and verify that conclusions follow from premises.
+
+Context (Premises):
+{context}
+
+Thought (Conclusion to Verify):
+{thought}
 
 Previous Reasoning Steps:
 {history_text if history_text else "This is the first node."}
 
-New Thought:
-{thought}
+FORMAL LOGIC ANALYSIS:
 
-Instructions:
-1. Does this Thought logically follow from the previous steps?
-2. Is it somewhat redundant but still valuable?
-3. Does it contribute to answering the question?
+Step 1: Extract Premises
+- Identify the key facts/premises stated in the Context
+
+Step 2: Extract Conclusion
+- Identify the conclusion/claim made in the Thought
+
+Step 3: Verify Logical Flow
+- Does the conclusion logically follow from the premises?
+- Are there any logical fallacies or unsupported jumps in reasoning?
+
+Examples:
+✓ LOGICAL: 
+  Premises: "John is taller than Mary. Mary is taller than Sam."
+  Conclusion: "John is taller than Sam." (Valid transitive reasoning)
+
+✗ ILLOGICAL:
+  Premises: "Cats are animals."
+  Conclusion: "Cats can talk." (Non-sequitur, doesn't follow)
+
+✓ LOGICAL:
+  Premises: "TFPS conducts photography workshops. Photography workshops teach camera techniques."
+  Conclusion: "TFPS teaches camera techniques." (Valid syllogism)
+
+✗ ILLOGICAL:
+  Premises: "Event X happened in 2023."
+  Conclusion: "Event X happens every year." (Unsupported generalization)
+
+Step 4: Check Redundancy
+- Is this Thought adding new information?
+- Or is it repeating what was already established in previous steps?
 
 CRITICAL: Return ONLY a valid JSON object, nothing else. No explanations, no markdown formatting.
 
 Output format:
 {{
-    "coherence_score": 0.0-1.0,
+    "is_logical": true/false,
+    "confidence": 0.0-1.0,
+    "reasoning": "Explanation of the logical flow (or lack thereof)",
     "is_redundant": true/false,
-    "action": "keep" | "merge" | "discard",
-    "remarks": "brief explanation"
-}}"""
+    "action": "keep" | "merge" | "discard"
+}}
+
+Action Guidelines:
+- "keep": Logical and adds new information
+- "merge": Logical but redundant with previous steps
+- "discard": Illogical or completely unsupported
+
+Confidence Guidelines:
+- 0.9-1.0: Clearly follows from premises, no logical issues
+- 0.7-0.8: Mostly logical, minor inference gaps
+- 0.5-0.6: Some logical connection, requires assumptions
+- 0.3-0.4: Weak logical connection, significant assumptions
+- 0.0-0.2: No logical connection or fallacious reasoning"""
 
         response = await self.call_llm(prompt)
         
@@ -335,18 +415,23 @@ Output format:
             cleaned_response = strip_markdown_json(response)
             result = json.loads(cleaned_response.strip())
             
-            coherence_score = float(result.get("coherence_score", 0.7))  # Default to 0.7
+            is_logical = result.get("is_logical", False)
+            confidence = float(result.get("confidence", 0.5))
+            reasoning = result.get("reasoning", "")
             is_redundant = result.get("is_redundant", False)
             action = result.get("action", "keep")
-            remarks = result.get("remarks", "")
             
-            # More lenient: pass if coherence >= 0.4, allow some redundancy
-            passed = coherence_score >= 0.4
+            # Strict: pass only if is_logical=true AND confidence >= 0.6
+            passed = is_logical and confidence >= 0.6
+            
+            # Override action if not logical
+            if not is_logical:
+                action = "discard"
             
             return {
-                "score": coherence_score,
+                "score": confidence,
                 "passed": passed,
-                "remarks": remarks,
+                "remarks": reasoning,
                 "action": action,
                 "expert": "LogicExpert"
             }
@@ -387,11 +472,17 @@ class MoEGauntlet:
         graph_history: List[Dict]
     ) -> Dict:
         """
-        Run all three experts in parallel and compute weighted vote
+        Run all three experts in parallel and compute weighted vote using STRICT consensus
         
-        Weighted Voting Formula (LENIENT):
+        Weighted Voting Formula (STRICT):
         final_score = (source_matcher_score * 0.5) + (hallucination_score * 0.3) + (logic_score * 0.2)
-        Pass threshold: final_score > 0.5
+        
+        CONSENSUS RULE (All experts must agree):
+        - Source Matcher: MUST pass (verdict=YES, confidence >= 0.6)
+        - Hallucination Hunter: MUST pass (no hallucinations detected)
+        - Logic Expert: MUST pass (is_logical=true, confidence >= 0.6)
+        
+        Pass threshold: final_score >= 0.6 AND all three experts pass
         
         Args:
             thought: The thought to verify
@@ -407,7 +498,7 @@ class MoEGauntlet:
                 "remarks": str
             }
         """
-        logger.info(f"Running MoE Gauntlet on thought: {thought[:100]}...")
+        logger.info(f"Running MoE Gauntlet (STRICT MODE) on thought: {thought[:100]}...")
         
         # Run all experts in parallel
         results = await asyncio.gather(
@@ -419,52 +510,65 @@ class MoEGauntlet:
         
         hallucination_result, source_result, logic_result = results
         
-        # Handle any exceptions - be generous with defaults
+        # Handle any exceptions - be strict with failures
         if isinstance(hallucination_result, Exception):
-            hallucination_result = {"score": 0.6, "passed": True, "remarks": str(hallucination_result)}
+            hallucination_result = {"score": 0.0, "passed": False, "remarks": f"Expert failed: {str(hallucination_result)}"}
         if isinstance(source_result, Exception):
-            source_result = {"score": 0.6, "passed": True, "remarks": str(source_result)}
+            source_result = {"score": 0.0, "passed": False, "remarks": f"Expert failed: {str(source_result)}"}
         if isinstance(logic_result, Exception):
-            logic_result = {"score": 0.7, "passed": True, "action": "keep", "remarks": str(logic_result)}
+            logic_result = {"score": 0.0, "passed": False, "action": "discard", "remarks": f"Expert failed: {str(logic_result)}"}
         
-        # Weighted voting (very lenient)
-        # Source Matcher (40%), Hallucination Hunter (30%), Logic Expert (30%)
+        # Weighted voting (strict)
+        # Source Matcher (50%), Hallucination Hunter (30%), Logic Expert (20%)
         final_score = (
-            source_result["score"] * 0.4 + 
+            source_result["score"] * 0.5 + 
             hallucination_result["score"] * 0.3 + 
-            logic_result["score"] * 0.3
+            logic_result["score"] * 0.2
         )
         
-        # Check if thought passes
+        # Check if each expert passes
         source_pass = source_result["passed"]
         hallucination_pass = hallucination_result["passed"]
         logic_pass = logic_result["passed"]
         
-        # Very lenient rules
-        # Pass if final_score >= 0.35 OR if at least 1 expert passes
+        # STRICT CONSENSUS RULE: ALL three experts must pass
         experts_passed = sum([source_pass, hallucination_pass, logic_pass])
+        all_experts_agree = experts_passed == 3
         
-        # Almost always pass - only fail if score is very low AND no experts passed
-        if final_score < 0.25 and experts_passed == 0:
+        # Build failure reasons
+        failure_reasons = []
+        if not source_pass:
+            failure_reasons.append("Source not found")
+        if not hallucination_pass:
+            failure_reasons.append("Hallucination detected")
+        if not logic_pass:
+            failure_reasons.append("Illogical reasoning")
+        
+        # Determine overall verdict
+        if all_experts_agree and final_score >= 0.6:
+            # Perfect consensus with high score
+            passed = True
+            action = logic_result.get("action", "keep")
+            remarks = f"✓ VERIFIED: Expert consensus achieved (Score: {final_score:.2f}/1.0, All 3/3 experts passed)"
+        elif final_score < 0.6:
+            # Score too low
             passed = False
             action = "discard"
-            remarks = f"FAILED: Very low score {final_score:.2f}, no experts passed"
+            reasons = ", ".join(failure_reasons) if failure_reasons else "Low confidence"
+            remarks = f"✗ REJECTED: Score too low ({final_score:.2f} < 0.6). Issues: {reasons}"
+        elif not all_experts_agree:
+            # Not all experts agree
+            passed = False
+            action = "discard"
+            reasons = ", ".join(failure_reasons)
+            remarks = f"✗ REJECTED: Expert consensus failed ({experts_passed}/3 passed). Issues: {reasons}"
         else:
-            # Check Logic Expert's recommendation
-            if logic_result.get("action") == "merge":
-                passed = True
-                action = "merge"
-                remarks = f"PASSED (score: {final_score:.2f}) - flagged as redundant, merging"
-            elif logic_result.get("action") == "discard" and final_score < 0.2:
-                passed = False
-                action = "discard"
-                remarks = f"FAILED: Logic Expert rejected and very low score ({final_score:.2f})"
-            else:
-                passed = True
-                action = "keep"
-                remarks = f"PASSED: score {final_score:.2f}, {experts_passed}/3 experts approved"
+            # Edge case
+            passed = False
+            action = "discard"
+            remarks = f"✗ REJECTED: Verification criteria not met"
         
-        logger.info(f"MoE Verdict: {remarks}")
+        logger.info(f"MoE Verdict (STRICT): {remarks}")
         
         return {
             "passed": passed,
@@ -475,5 +579,7 @@ class MoEGauntlet:
                 "source_matcher": source_result,
                 "logic_expert": logic_result
             },
+            "experts_passed": experts_passed,
+            "failure_reasons": failure_reasons,
             "remarks": remarks
         }
