@@ -1,0 +1,111 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Project-specific generated files
+all_article_urls.txt
+metakgp_data/
+faiss_index/
+metakgp_graph.gml
+results.zip
+results/
+*.json
+temp_*
+tempCodeRunnerFile.py
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IPython
+.ipython_history
+.ipykernel/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Logs
+*.log
+logs/
+
+# API Keys and Secrets (DO NOT COMMIT THESE!)
+*.key
+*.pem
+*.crt
+secrets.json
+config.json
+
+# IDE temporary files
+*.swp
+*.swo
+*~
+
+# OS temp files
+*.tmp
+Thumbs.db
+.AppleDouble
+.LSOverride

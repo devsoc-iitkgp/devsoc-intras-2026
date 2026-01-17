@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaKGP Bot - IIT Kharagpur Knowledge Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">🎓</span>
+                    <h1>MetaKGP</h1>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-btn new-chat-btn" id="newChatBtn">
+                    <span class="icon">➕</span>
+                    <span>New Chat</span>
+                </button>
+                <button class="nav-btn history-btn" id="historyBtn">
+                    <span class="icon">📋</span>
+                    <span>History</span>
+                </button>
+                <button class="nav-btn settings-btn" id="settingsBtn">
+                    <span class="icon">⚙️</span>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+            <!-- Header -->
+            <div class="chat-header">
+                <h2>MetaKGP Assistant</h2>
+                <p>Your IIT Kharagpur Knowledge Base</p>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="messages-area" id="messagesArea">
+                <div class="welcome-message">
+                    <div class="welcome-content">
+                        <h2>🎓 Welcome to MetaKGP Bot!</h2>
+                        <p>Your intelligent assistant for all things IIT Kharagpur</p>
+                        
+                        <div class="welcome-examples">
+                            <p><strong>Try asking:</strong></p>
+                            <div class="example-pills">
+                                <div class="pill" onclick="document.getElementById('messageInput').value = 'Who is the VP of TFPS?'; document.getElementById('chatForm').dispatchEvent(new Event('submit'));">Who is the VP of TFPS?</div>
+                                <div class="pill" onclick="document.getElementById('messageInput').value = 'Tell me about RP Hall'; document.getElementById('chatForm').dispatchEvent(new Event('submit'));">Tell me about RP Hall</div>
+                                <div class="pill" onclick="document.getElementById('messageInput').value = 'What clubs are there?'; document.getElementById('chatForm').dispatchEvent(new Event('submit'));">What clubs are there?</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                <div class="message bot">
+                    <div class="message-bubble">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <form id="chatForm" class="chat-form">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Ask me about IIT Kharagpur..." 
+                            rows="1"
+                            required
+                        ></textarea>
+                        <button type="submit" class="send-btn" id="sendBtn">
+                            <span>Send</span>
+                            <span class="send-icon">➤</span>
+                        </button>
+                    </div>
+                    <div class="input-hint">Press Enter to send, Shift+Enter for new line</div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal" id="historyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 Chat History</h3>
+                <button class="close-btn" onclick="closeHistoryModal()">✕</button>
+            </div>
+            <div class="modal-body" id="historyList">
+                <p class="empty-state">No messages yet. Start a conversation!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="close-btn" onclick="closeSettingsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label>🎨 Theme</label>
+                    <select id="themeSelect" onchange="changeTheme(this.value)">
+                        <option value="auto">Auto (System)</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+
+                <div class="settings-group">
+                    <label>📊 Detail Level</label>
+                    <select id="detailSelect" onchange="changeDetailLevel(this.value)">
+                        <option value="brief">Brief</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="detailed">Detailed</option>
+                    </select>
+                </div>
+
+                <div class="settings-group">
+                    <label>🔍 API Status</label>
+                    <div class="api-status" id="apiStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking...</span>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <label>ℹ️ About</label>
+                    <div class="about-text">
+                        <p><strong>MetaKGP Bot v1.0</strong></p>
+                        <p>Powered by Graph of Thoughts + Mixture of Experts</p>
+                        <p>Built with ❤️ for IIT Kharagpur</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

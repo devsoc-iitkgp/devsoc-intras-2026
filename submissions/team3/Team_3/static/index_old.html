@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaKGP RAG Bot - Chat Interface</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>MetaKGP</h1>
+                <p>RAG Knowledge Bot</p>
+            </div>
+            
+            <div class="sidebar-menu">
+                <button id="newChatBtn" class="menu-btn active">
+                    <span>+ New Chat</span>
+                </button>
+                <button id="historyBtn" class="menu-btn">
+                    <span>📋 History</span>
+                </button>
+                <button id="settingsBtn" class="menu-btn">
+                    <span>⚙️ Settings</span>
+                </button>
+            </div>
+            
+            <div class="sidebar-info">
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+            <!-- Header -->
+            <div class="chat-header">
+                <h2>Ask about IIT Kharagpur</h2>
+                <p>Powered by Graph of Thoughts & Mixture of Experts Verification</p>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="messages-area" id="messagesArea">
+                <div class="welcome-message">
+                    <h2>Welcome to MetaKGP Bot! 👋</h2>
+                    <p>Ask me anything about IIT Kharagpur, including:</p>
+                    <ul>
+                        <li>Club information (TFPS, TLS, TSG, etc.)</li>
+                        <li>Hall details (RP, RK, etc.)</li>
+                        <li>Officer information and contacts</li>
+                        <li>Event information</li>
+                        <li>Other MetaKGP knowledge</li>
+                    </ul>
+                    <p style="margin-top: 20px; color: #888; font-size: 0.9em;">
+                        <strong>Advanced:</strong> Each answer is verified by 3 expert systems (Source Matcher, Hallucination Hunter, Logic Expert) to ensure accuracy.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                <span></span><span></span><span></span>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <form id="chatForm" onsubmit="sendMessage(event)">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Ask about IIT Kharagpur..."
+                            rows="1"
+                            autocomplete="off"
+                        ></textarea>
+                        <button type="submit" id="sendBtn" class="send-btn" title="Send message (Enter)">
+                            ➤
+                        </button>
+                    </div>
+                    <small style="color: #999; margin-top: 8px;">
+                        Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line
+                    </small>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for History -->
+    <div id="historyModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Conversation History</h3>
+                <button class="close-btn" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+            <div class="modal-footer">
+                <button onclick="clearHistory()" class="danger-btn">Clear All</button>
+                <button onclick="closeHistoryModal()" class="secondary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Settings -->
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="settings-body">
+                <div class="setting-item">
+                    <label>API Status</label>
+                    <p id="apiStatus">Checking...</p>
+                </div>
+                <div class="setting-item">
+                    <label>Theme</label>
+                    <select id="themeSelect" onchange="changeTheme(this.value)">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="auto">Auto (System)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Response Detail Level</label>
+                    <select id="detailLevel">
+                        <option value="normal">Normal</option>
+                        <option value="detailed">Detailed (with reasoning)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeSettingsModal()" class="secondary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
