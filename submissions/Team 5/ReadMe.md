@@ -8,9 +8,11 @@
 
 ## 🔗 Project Links
 * **Demo Video:** [Link to YouTube/Loom (3-5 mins)]
+
+* Live App Link --
 * **Hosted Demo:** [https://askkgp-au2ucbafn2efqbmjl2ge7h.streamlit.app/]
 
-## 🤖 Technical Implementation
+
 
 ### 1. Data Pipeline (Scraping)
 * **Tools Used:** (pinecone,sentence-transformers,streamlit,beautifulsoup4,requests,openai,dotenv)
@@ -28,5 +30,7 @@
 
 
 
-https://github.com/user-attachments/assets/7594aae4-4653-4351-a3e5-f29c527f4e0e
+
+https://github.com/user-attachments/assets/081e8151-dc88-4ccc-b1f1-b40f771cfe44
+
 
