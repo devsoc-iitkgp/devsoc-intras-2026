@@ -1,0 +1,7 @@
+pinecone
+sentence-transformers
+streamlit
+beautifulsoup4
+requests
+openai
+dotenv
